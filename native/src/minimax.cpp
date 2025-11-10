@@ -15,10 +15,9 @@
 #include <gameutils.h>
 #include <minimax.h>
 
-#include <iostream>
 #include <limits>
 
-std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board> &board, const int depth, const int alpha, const int beta, const PieceKind player) {
+std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board>& board, const int depth, const int alpha, const int beta, const PieceKind player) {
     const auto neutron = board->findNeutron();
 
     if (!depth || neutron->row == 0 || neutron->row == 4) {
@@ -29,7 +28,7 @@ std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board> &board, const int dept
 
     auto maxFullMove = std::make_unique<FullMove>(std::vector<std::unique_ptr<Move>>(), alpha);
 
-    for (const auto &fullMove : fullMoves) {
+    for (const auto& fullMove : fullMoves) {
         board->applyFullMove(fullMove);
 
         const auto minFullMove = minValue(                                    //
@@ -41,7 +40,7 @@ std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board> &board, const int dept
         );
 
         if (minFullMove->score > maxFullMove->score) {
-            maxFullMove = fullMove->clone();
+            *maxFullMove = *fullMove;
             maxFullMove->score = minFullMove->score;
         }
 
@@ -55,14 +54,14 @@ std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board> &board, const int dept
 
     if (maxFullMove->empty() && !fullMoves.empty()) {
         auto tmp = std::make_unique<FullMove>(std::vector<std::unique_ptr<Move>>(), std::numeric_limits<int>::min());
-        for (const auto &fullMove : fullMoves) {
+        for (const auto& fullMove : fullMoves) {
             board->applyFullMove(fullMove);
             const auto h = heuristic(board);
             board->applyFullMove(fullMove, false);
             fullMove->score = h;
 
             if (fullMove->score > tmp->score) {
-                tmp = fullMove->clone();
+                *tmp = *fullMove;
             }
         }
 
@@ -72,7 +71,7 @@ std::unique_ptr<FullMove> maxValue(std::unique_ptr<Board> &board, const int dept
     }
 }
 
-std::unique_ptr<FullMove> minValue(std::unique_ptr<Board> &board, const int depth, const int alpha, const int beta, const PieceKind player) {
+std::unique_ptr<FullMove> minValue(std::unique_ptr<Board>& board, const int depth, const int alpha, const int beta, const PieceKind player) {
     const auto neutron = board->findNeutron();
 
     if (!depth || neutron->row == 0 || neutron->row == 4) {
@@ -83,7 +82,7 @@ std::unique_ptr<FullMove> minValue(std::unique_ptr<Board> &board, const int dept
 
     auto minFullMove = std::make_unique<FullMove>(std::vector<std::unique_ptr<Move>>(), beta);
 
-    for (const auto &fullMove : fullMoves) {
+    for (const auto& fullMove : fullMoves) {
         board->applyFullMove(fullMove);
 
         const auto maxFullMove = maxValue(                                    //
@@ -95,7 +94,7 @@ std::unique_ptr<FullMove> minValue(std::unique_ptr<Board> &board, const int dept
         );
 
         if (maxFullMove->score < minFullMove->score) {
-            minFullMove = fullMove->clone();
+            *minFullMove = *fullMove;
             minFullMove->score = maxFullMove->score;
         }
 
@@ -109,14 +108,14 @@ std::unique_ptr<FullMove> minValue(std::unique_ptr<Board> &board, const int dept
 
     if (minFullMove->empty() && !fullMoves.empty()) {
         auto tmp = std::make_unique<FullMove>(std::vector<std::unique_ptr<Move>>(), std::numeric_limits<int>::min());
-        for (const auto &fullMove : fullMoves) {
+        for (const auto& fullMove : fullMoves) {
             board->applyFullMove(fullMove);
             const auto h = heuristic(board);
             board->applyFullMove(fullMove, false);
             fullMove->score = h;
 
             if (fullMove->score < tmp->score) {
-                tmp = fullMove->clone();
+                *tmp = *fullMove;
             }
         }
 

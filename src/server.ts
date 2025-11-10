@@ -103,7 +103,7 @@ ns.on("connection", (socket) => {
 	}));
 
 	socket.on("cell:click", withAck(CellClickSchema, async ({gameId, row, col}) => {
-		logger.debug({ns: "ws", ev: "cell_click", gameId, row, col});
+		logger.info({ns: "ws", ev: "cell_click", gameId, row, col});
 
 		const current = await store.load(gameId);
 		if (!current)
