@@ -15,13 +15,13 @@ import { Move } from "(src)/domain/Move";
 import { FullMove } from "(src)/domain/FullMove";
 import { GameState } from "(src)/domain/GameState";
 
-export function getDefaultBoard(): PieceKind[][] {
+export function getDefaultBoard(): PieceKind[] {
 	return [
-		[PieceKind.BLACK, PieceKind.BLACK, PieceKind.BLACK, PieceKind.BLACK, PieceKind.BLACK],
-		[PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL],
-		[PieceKind.CELL, PieceKind.CELL, PieceKind.NEUTRON, PieceKind.CELL, PieceKind.CELL],
-		[PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL],
-		[PieceKind.WHITE, PieceKind.WHITE, PieceKind.WHITE, PieceKind.WHITE, PieceKind.WHITE]
+		PieceKind.BLACK, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.WHITE,       // col 1
+		PieceKind.BLACK, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.WHITE,       // col 2
+		PieceKind.BLACK, PieceKind.CELL, PieceKind.NEUTRON, PieceKind.CELL, PieceKind.WHITE,    // col 3
+		PieceKind.BLACK, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.WHITE,       // col 4
+		PieceKind.BLACK, PieceKind.CELL, PieceKind.CELL, PieceKind.CELL, PieceKind.WHITE        // col 5
 	];
 }
 
@@ -40,12 +40,5 @@ export function getReviver(typename: string) {
 		}
 		return value;
 	};
-}
-
-export function pieceToString(pieceKind: PieceKind): string  {
-    if (pieceKind === PieceKind.BLACK) return 'B';
-    if (pieceKind === PieceKind.WHITE) return 'W';
-    if (pieceKind === PieceKind.NEUTRON) return 'N';
-    return ' ';
 }
 

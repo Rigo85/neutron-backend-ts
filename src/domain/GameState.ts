@@ -21,7 +21,7 @@ const defaultMovements: FullMove[] = [];
 
 class GameState {
 	private readonly _id: string;
-	private readonly _board: PieceKind[][];
+	private readonly _board: PieceKind[];
 	private readonly _movements: FullMove[];
 	private _whoMove: number = 0;
 	private _selectedChip?: Move;
@@ -32,7 +32,7 @@ class GameState {
 
 	constructor(
 		id: string = uuid4(),
-		board: PieceKind[][] = getDefaultBoard(),
+		board: PieceKind[] = getDefaultBoard(),
 		movements: FullMove[] = defaultMovements,
 		whoMove: number = 0,
 		selectedChip?: Move,
@@ -64,8 +64,16 @@ class GameState {
 		return this._id;
 	}
 
-	get board(): PieceKind[][] {
+	get board(): PieceKind[] {
 		return this._board;
+	}
+
+	elementAt(row: number, col: number): PieceKind {
+		return this._board[col * 5 + row];
+	}
+
+	setElementAt(row: number, col: number, kind: PieceKind): void {
+		this._board[col * 5 + row] = kind;
 	}
 
 	get movements(): FullMove[] {
@@ -118,7 +126,6 @@ class GameState {
 
 	// noinspection JSUnusedGlobalSymbols
 	toJSON() {
-
 		return {
 			__typename: "GameState",
 			id: this._id,
@@ -135,7 +142,7 @@ class GameState {
 
 	static fromJSON(json: any): GameState {
 		const id: string = json.id;
-		const board: PieceKind[][] = json.board;
+		const board: PieceKind[] = json.board;
 		const movements: FullMove[] = json.movements.map((m: any) => FullMove.fromJSON(m));
 		const whoMove: number = json.whoMove;
 		const selectedChip: Move | undefined = json.selectedChip ? Move.fromJSON(json.selectedChip) : undefined;

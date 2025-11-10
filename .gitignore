@@ -140,3 +140,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 .idea/
+native/build/*
+native/.idea
+native/cmake-build-debug
+native/node_modules

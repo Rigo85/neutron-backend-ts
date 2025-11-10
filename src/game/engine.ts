@@ -17,10 +17,13 @@ import path from "path";
 import { FullMove } from "(src)/domain/FullMove";
 import { logger } from "(src)/infra/logger";
 
-const addon: { minimaxAsync(input: string | Buffer): Promise<string> } =
+type NativeMove = { row: number; col: number; kind: number };
+type NativeOutput = { moves: NativeMove[]; score: number };
+
+const addon: { minimaxAsync(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> } =
 	require(path.join(__dirname, "..", "..", "native", "build", "Release", "neutron_minimax.node"));
 
-export function nativeMinimax(input: string | Buffer): Promise<string> {
+export function nativeMinimax(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> {
 	return addon.minimaxAsync(input);
 }
 
@@ -94,16 +97,15 @@ function updateWhoMove(state: GameState): void {
 }
 
 function updateBoard(moves: Move[], state: GameState): void {
-	Array
-		.from(Array(25).keys())
-		.forEach(i => {
-			const row = Math.trunc(i / 5);
-			const col = i % 5;
+	for (let c = 0; c < 5; c++) {
+		for (let r = 0; r < 5; r++) {
+			state.setElementAt(r, c, mappingForCleaningBoard[state.elementAt(r, c)]);
+		}
+	}
 
-			state.board[row][col] = mappingForCleaningBoard[state.board[row][col]];
-		});
-
-	moves.forEach((m: Move) => state.board[m.row][m.col] = mappingForHighlightingBoard[state.board[m.row][m.col]]);
+	moves.forEach((m: Move) =>
+		state.setElementAt(m.row, m.col, mappingForHighlightingBoard[state.elementAt(m.row, m.col)])
+	);
 }
 
 function inBounds(value: number, inc: number): boolean {
@@ -125,7 +127,7 @@ function checkMove(move: Move, direction: Direction, state: GameState) {
 	} {
 		if (!inBounds(row, incR) ||
 			!inBounds(col, incC) ||
-			state.board[row + incR][col + incC] !== PieceKind.CELL) return {row: row, col: col};
+			state.elementAt(row + incR, col + incC) !== PieceKind.CELL) return {row: row, col: col};
 		return _check(row + incR, col + incC, incR, incC, state);
 	}
 
@@ -140,10 +142,10 @@ function moves(startPoint: Move, state: GameState): Move[] {
 		.filter((m: Move | undefined) => m !== undefined);
 }
 
-function checkGameOver(neutronDestination: Move | undefined, pieceKind: PieceKind, state: GameState): {
-	success: boolean;
-	kind: PieceKind
-} {
+function checkGameOver(
+	neutronDestination: Move | undefined,
+	pieceKind: PieceKind,
+	state: GameState): { success: boolean; kind: PieceKind } {
 	if (!neutronDestination) return {success: false, kind: PieceKind.CELL};
 
 	const neutronMoves = moves(neutronDestination, state);
@@ -153,25 +155,24 @@ function checkGameOver(neutronDestination: Move | undefined, pieceKind: PieceKin
 	return {success: false, kind: PieceKind.CELL};
 }
 
-function applyMove(from: Move | undefined, to: Move | undefined, board: PieceKind[][]): void {
+function applyMove(from: Move | undefined, to: Move | undefined, state: GameState): void {
 	if (from && to) {
-		board[to.row][to.col] = to.kind;
+		state.setElementAt(to.row, to.col, to.kind);
 		if (from.col * 5 + from.row != to.col * 5 + to.row)
-			board[from.row][from.col] = PieceKind.CELL;
+			state.setElementAt(from.row, from.col, PieceKind.CELL);
 	}
 }
 
 function applyFullMove(fullMove: FullMove, state: GameState, apply: boolean = true): void {
-	applyMove(fullMove.moves[apply ? 0 : 3], fullMove.moves[apply ? 1 : 2], state.board);
-	applyMove(fullMove.moves[apply ? 2 : 1], fullMove.moves[apply ? 3 : 0], state.board);
+	applyMove(fullMove.moves[apply ? 0 : 3], fullMove.moves[apply ? 1 : 2], state);
+	applyMove(fullMove.moves[apply ? 2 : 1], fullMove.moves[apply ? 3 : 0], state);
 }
 
 export async function onClickCell(state: GameState, row: number, col: number): Promise<{
 	success: boolean;
 	kind: PieceKind
 }> {
-	const board = state.board;
-	const pk = board[row][col];
+	const pk = state.elementAt(row, col);
 	let endGame: { success: boolean; kind: PieceKind } = {success: false, kind: PieceKind.CELL};
 
 	if (pk === getWhoMove(state)) {
@@ -181,7 +182,7 @@ export async function onClickCell(state: GameState, row: number, col: number): P
 		updateBoard(validMoves.concat(move), state);
 		state.selectedChip = move;
 	} else if (pk === PieceKind.SCELL) {
-		applyMove(state.selectedChip, new Move(row, col, state.selectedChip?.kind), state.board);
+		applyMove(state.selectedChip, new Move(row, col, state.selectedChip?.kind), state);
 		updateBoard([], state);
 
 		if (getWhoMove(state) === PieceKind.WHITE) {
@@ -191,10 +192,7 @@ export async function onClickCell(state: GameState, row: number, col: number): P
 			}
 
 			if (!endGame.success) {
-				// TODO: pasar state.difficulty al minimax.
-				const objStr = await nativeMinimax(JSON.stringify({board: state.board}));
-				logger.debug(objStr);
-				const obj = JSON.parse(objStr);
+				const obj = await nativeMinimax({board: Uint8Array.from(state.board), depth: state.difficulty});
 				const machineFullMove = new FullMove(
 					obj.moves.map((m: any) => new Move(m.row, m.col, m.kind)),
 					obj.score
