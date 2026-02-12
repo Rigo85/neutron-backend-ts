@@ -27,6 +27,8 @@ import {
 } from "(src)/domain/schemas";
 import { GameState } from "(src)/domain/GameState";
 import { onClickCell } from "(src)/game/engine";
+import { pgConnect, pgDisconnect } from "(src)/infra/pg";
+import { insertSession, closeSession, logEvent } from "(src)/infra/event-log";
 
 moduleAlias.addAliases({
 	"@root": __dirname + "/..",
@@ -50,10 +52,38 @@ const ns = io.of("/game");
 /**
  * WS Namespace handlers.
  */
-ns.on("connection", (socket) => {
+ns.on("connection", async (socket) => {
 	logger.info({ns: "ws", ev: "connected", sid: socket.id});
 
+	// --- Extract device info & persist session ---
+	const headers = socket.handshake.headers;
+	const auth = socket.handshake.auth ?? {};
+	const ip = (headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+		?? socket.handshake.address;
+
+	let sessionId: number | undefined;
+	try {
+		sessionId = await insertSession({
+			socketId: socket.id,
+			ip,
+			userAgent: headers["user-agent"] as string | undefined,
+			acceptLanguage: headers["accept-language"] as string | undefined,
+			platform: auth.platform,
+			language: auth.language,
+			screenWidth: auth.screenWidth,
+			screenHeight: auth.screenHeight,
+			colorDepth: auth.colorDepth,
+			timezone: auth.timezone
+		});
+		(socket.data as any).sessionId = sessionId;
+	} catch (err: any) {
+		logger.warn({ns: "pg", ev: "insert_session_error", err: String(err?.message ?? err)});
+	}
+
+	// --- Event handlers ---
+
 	socket.on("join", withAck(GameIdSchema, async ({gameId}) => {
+		logEvent(sessionId, "join", gameId);
 		socket.join(gameId);
 		let st = await store.load(gameId);
 		if (!st) st = await store.initIfMissing(new GameState(gameId));
@@ -63,6 +93,7 @@ ns.on("connection", (socket) => {
 
 	socket.on("game:new", withAck(GameNewSchema, async ({gameId}) => {
 		const gid = gameId ?? uuidv4();
+		logEvent(sessionId, "game_new", gid);
 		const created = await store.initIfMissing(new GameState(gid));
 
 		socket.join(gid);
@@ -73,6 +104,7 @@ ns.on("connection", (socket) => {
 	}));
 
 	socket.on("game:change:diff", withAck(GameChangeDifficultySchema, async ({difficulty, gameId}) => {
+		logEvent(sessionId, "game_change_difficulty", gameId, {difficulty});
 		const current = await store.load(gameId);
 		if (!current) {
 			throw new Error(`game_not_found: game not found (id=${gameId})`);
@@ -104,6 +136,7 @@ ns.on("connection", (socket) => {
 
 	socket.on("cell:click", withAck(CellClickSchema, async ({gameId, row, col}) => {
 		logger.info({ns: "ws", ev: "cell_click", gameId, row, col});
+		logEvent(sessionId, "cell_click", gameId, {row, col});
 
 		const current = await store.load(gameId);
 		if (!current)
@@ -115,6 +148,12 @@ ns.on("connection", (socket) => {
 		ns.to(gameId).emit("state", next);
 		if (endGame.success) {
 			logger.info({ns: "game", ev: "game_over", gameId, winner: endGame.kind});
+			logEvent(sessionId, "game_over", gameId, {
+				winner: endGame.kind,
+				difficulty: next.difficulty,
+				moveCount: next.movements.length,
+				board: Array.from(next.board)
+			});
 			ns.to(gameId).emit("game:over", {winner: endGame.kind});
 		}
 
@@ -123,6 +162,8 @@ ns.on("connection", (socket) => {
 
 	socket.on("disconnect", (reason) => {
 		logger.warn({ns: "ws", ev: "disconnected", sid: socket.id, reason});
+		logEvent(sessionId, "disconnected", undefined, {reason});
+		if (sessionId) closeSession(sessionId);
 	});
 });
 
@@ -139,6 +180,7 @@ async function applyClickAndEvolve(current: GameState, click: { row: number; col
  */
 async function main() {
 	await store.connect();
+	await pgConnect();
 
 	server.listen(
 		config.port,
@@ -153,6 +195,7 @@ async function main() {
 
 		try {
 			await store.disconnect();
+			await pgDisconnect();
 		} catch (err: any) {
 			logger.error({ns: "proc", ev: "shutdown_error", err: String(err?.message ?? err)});
 		}

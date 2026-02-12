@@ -22,7 +22,9 @@ const Envs = z.object({
 	LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
 	LOG_PRETTY: z.coerce.number().int().min(0).max(1).default(1),
 
-	REDIS_URL: z.string().default("redis://127.0.0.1:6379")
+	REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
+
+	PG_URL: z.string().default("postgresql://localhost:5432/neutron")
 });
 
 const parsed = Envs.parse(process.env);
@@ -40,5 +42,7 @@ export const config = {
 	logLevel: parsed.LOG_LEVEL,
 	logPretty: parsed.LOG_PRETTY === 1,
 
-	redisUrl: parsed.REDIS_URL
+	redisUrl: parsed.REDIS_URL,
+
+	pgUrl: parsed.PG_URL
 } as const;
