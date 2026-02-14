@@ -27,6 +27,14 @@ export class GameStore {
 			await this.client.connect();
 	}
 
+	isConnected(): boolean {
+		return this.client.isOpen;
+	}
+
+	async ping(): Promise<void> {
+		await this.client.ping();
+	}
+
 	async disconnect() {
 		if (this.client.isOpen)
 			await this.client.quit();

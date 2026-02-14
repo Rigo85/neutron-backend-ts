@@ -5,14 +5,22 @@
 	"engines": {
 		"node": ">=24"
 	},
+	"overrides": {
+		"glob": "^13.0.3"
+	},
 	"scripts": {
 		"dev": "tsx watch src/server.ts",
 		"build:native": "node-gyp rebuild --directory ./native",
 		"build:rl": "cmake-js build -d native/rl -O native/rl/build --CDCMAKE_PREFIX_PATH=${LIBTORCH_PATH:-/usr/local/lib/libtorch}",
 		"clean": "node-gyp clean --directory ./native",
-		"build": "tsc && npm run build:native && npm run build:rl",
-		"start": "NODE_ENV=production node dist/server.js",
-		"lint": "eslint ."
+		"build": "tsc && npm run build:native && npm run build:rl && npm run copy-static-assets",
+		"start": "NODE_ENV=production node -r module-alias/register dist/server.js",
+		"lint": "eslint .",
+		"copy-static-assets": "ts-node copyStaticAssets.ts"
+	},
+	"_moduleAliases": {
+		"(src)": "dist",
+		"@root": "."
 	},
 	"dependencies": {
 		"dotenv": "^17.2.3",
@@ -30,11 +38,14 @@
 		"@types/express": "^4.17.21",
 		"@types/node": "^22.7.9",
 		"@types/pg": "^8.16.0",
-		"cmake-js": "^7.4.0",
+		"@types/shelljs": "^0.10.0",
+		"cmake-js": "^8.0.0",
 		"eslint": "^9.39.0",
 		"module-alias": "^2.2.3",
-		"node-gyp": "^11.2.0",
+		"node-gyp": "^12.2.0",
 		"pino-pretty": "^13.1.2",
+		"shelljs": "^0.10.0",
+		"ts-node": "^10.9.2",
 		"tsx": "^4.20.6",
 		"typescript": "^5.9.3"
 	}

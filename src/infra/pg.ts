@@ -18,6 +18,14 @@ export function getPool(): Pool {
 	return pool;
 }
 
+export function pgIsConnected(): boolean {
+	return !!pool;
+}
+
+export async function pgPing(): Promise<void> {
+	await getPool().query("SELECT 1");
+}
+
 export async function pgConnect(): Promise<void> {
 	pool = new Pool({ connectionString: config.pgUrl });
 	const client = await pool.connect();
