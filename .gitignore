@@ -141,6 +141,8 @@ vite.config.ts.timestamp-*
 .vite/
 .idea/
 native/build/*
+native/rl/build/
+native/rl/build/**
 native/.idea
 native/cmake-build-debug
 native/node_modules
