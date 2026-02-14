@@ -24,7 +24,8 @@ const Envs = z.object({
 
 	REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
 
-	PG_URL: z.string().default("postgresql://localhost:5432/neutron")
+	PG_URL: z.string().default("postgresql://localhost:5432/neutron"),
+	RL_MODEL_PATH: z.string().default("data/model.pt")
 });
 
 const parsed = Envs.parse(process.env);
@@ -44,5 +45,6 @@ export const config = {
 
 	redisUrl: parsed.REDIS_URL,
 
-	pgUrl: parsed.PG_URL
+	pgUrl: parsed.PG_URL,
+	rlModelPath: parsed.RL_MODEL_PATH
 } as const;

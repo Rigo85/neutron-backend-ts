@@ -26,7 +26,7 @@ import {
 	GameNewSchema
 } from "(src)/domain/schemas";
 import { GameState } from "(src)/domain/GameState";
-import { onClickCell } from "(src)/game/engine";
+import { isRlAvailable, isRlMode, loadRlModel, onClickCell } from "(src)/game/engine";
 import { pgConnect, pgDisconnect } from "(src)/infra/pg";
 import { insertSession, closeSession, logEvent } from "(src)/infra/event-log";
 
@@ -91,10 +91,18 @@ ns.on("connection", async (socket) => {
 		return st;
 	}));
 
-	socket.on("game:new", withAck(GameNewSchema, async ({gameId}) => {
+	socket.on("game:new", withAck(GameNewSchema, async ({gameId, difficulty}) => {
 		const gid = gameId ?? uuidv4();
 		logEvent(sessionId, "game_new", gid);
 		const created = await store.initIfMissing(new GameState(gid));
+		if (typeof difficulty === "number") {
+			if (isRlMode(difficulty) && !isRlAvailable()) {
+				throw new Error("rl_unavailable: RL addon/model not available");
+			}
+			created.difficulty = difficulty;
+			created.version += 1;
+			await store.save(created);
+		}
 
 		socket.join(gid);
 		socket.emit("state", created);
@@ -105,6 +113,11 @@ ns.on("connection", async (socket) => {
 
 	socket.on("game:change:diff", withAck(GameChangeDifficultySchema, async ({difficulty, gameId}) => {
 		logEvent(sessionId, "game_change_difficulty", gameId, {difficulty});
+
+		if (isRlMode(difficulty) && !isRlAvailable()) {
+			throw new Error("rl_unavailable: RL addon/model not available");
+		}
+
 		const current = await store.load(gameId);
 		if (!current) {
 			throw new Error(`game_not_found: game not found (id=${gameId})`);
@@ -181,6 +194,7 @@ async function applyClickAndEvolve(current: GameState, click: { row: number; col
 async function main() {
 	await store.connect();
 	await pgConnect();
+	await loadRlModel(config.rlModelPath);
 
 	server.listen(
 		config.port,

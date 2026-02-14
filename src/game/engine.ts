@@ -13,18 +13,99 @@ import { Direction, PieceKind } from "(src)/domain/types";
 import { GameState } from "(src)/domain/GameState";
 import { Move } from "(src)/domain/Move";
 
+import { existsSync } from "node:fs";
 import path from "path";
 import { FullMove } from "(src)/domain/FullMove";
 import { logger } from "(src)/infra/logger";
 
 type NativeMove = { row: number; col: number; kind: number };
 type NativeOutput = { moves: NativeMove[]; score: number };
+type RlDifficulty = "easy" | "medium" | "hard";
 
-const addon: { minimaxAsync(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> } =
+const minimaxAddon: { minimaxAsync(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> } =
 	require(path.join(__dirname, "..", "..", "native", "build", "Release", "neutron_minimax.node"));
 
+type RlAddon = {
+	loadModel(path: string): Promise<void>;
+	moveAsync(input: { board: Uint8Array; difficulty: RlDifficulty }): Promise<NativeOutput>;
+};
+
+let rlAddon: RlAddon | undefined;
+let rlReady = false;
+
+function resolveRlAddonPath(): string | undefined {
+	const candidates = [
+		path.join(__dirname, "..", "..", "native", "rl", "build", "neutron_rl_addon.node"),
+		path.join(__dirname, "..", "..", "native", "rl", "build", "Release", "neutron_rl_addon.node"),
+		path.join(process.cwd(), "native", "rl", "build", "neutron_rl_addon.node"),
+		path.join(process.cwd(), "native", "rl", "build", "Release", "neutron_rl_addon.node")
+	];
+
+	return candidates.find((candidate) => existsSync(candidate));
+}
+
+try {
+	const rlAddonPath = resolveRlAddonPath();
+	if (rlAddonPath) {
+		rlAddon = require(rlAddonPath);
+	} else {
+		logger.warn({ns: "rl", ev: "addon_not_found"});
+	}
+} catch (err: any) {
+	logger.warn({ns: "rl", ev: "addon_load_error", err: String(err?.message ?? err)});
+}
+
 export function nativeMinimax(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> {
-	return addon.minimaxAsync(input);
+	return minimaxAddon.minimaxAsync(input);
+}
+
+function rlDifficulty(difficulty: number): RlDifficulty {
+	switch (difficulty) {
+		case 11:
+			return "easy";
+		case 12:
+			return "medium";
+		case 13:
+		default:
+			return "hard";
+	}
+}
+
+export function isRlMode(difficulty: number): boolean {
+	return difficulty >= 11 && difficulty <= 13;
+}
+
+export function isRlAvailable(): boolean {
+	return Boolean(rlAddon && rlReady);
+}
+
+export async function loadRlModel(modelPath: string): Promise<void> {
+	if (!rlAddon) {
+		logger.warn({ns: "rl", ev: "addon_unavailable"});
+		return;
+	}
+
+	const resolvedPath = path.isAbsolute(modelPath) ? modelPath : path.join(process.cwd(), modelPath);
+
+	try {
+		await rlAddon.loadModel(resolvedPath);
+		rlReady = true;
+		logger.info({ns: "rl", ev: "model_loaded", modelPath: resolvedPath});
+	} catch (err: any) {
+		rlReady = false;
+		logger.warn({ns: "rl", ev: "model_load_error", modelPath: resolvedPath, err: String(err?.message ?? err)});
+	}
+}
+
+export function nativeRlMove(input: { board: Uint8Array; difficulty: number }): Promise<NativeOutput> {
+	if (!rlAddon || !rlReady) {
+		throw new Error("rl_unavailable: RL addon/model not available");
+	}
+
+	return rlAddon.moveAsync({
+		board: input.board,
+		difficulty: rlDifficulty(input.difficulty)
+	});
 }
 
 const rotation = [PieceKind.NEUTRON, PieceKind.WHITE];
@@ -192,7 +273,9 @@ export async function onClickCell(state: GameState, row: number, col: number): P
 			}
 
 			if (!endGame.success) {
-				const obj = await nativeMinimax({board: Uint8Array.from(state.board), depth: state.difficulty});
+				const obj = isRlMode(state.difficulty)
+					? await nativeRlMove({board: Uint8Array.from(state.board), difficulty: state.difficulty})
+					: await nativeMinimax({board: Uint8Array.from(state.board), depth: state.difficulty});
 				const machineFullMove = new FullMove(
 					obj.moves.map((m: any) => new Move(m.row, m.col, m.kind)),
 					obj.score
@@ -222,4 +305,3 @@ export async function onClickCell(state: GameState, row: number, col: number): P
 
 	return endGame;
 }
-

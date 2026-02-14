@@ -12,10 +12,14 @@
 import { z } from "zod";
 
 export const GameIdSchema = z.object({gameId: z.string().min(1)});
-export const GameNewSchema = z.object({gameId: z.string().min(1).optional()});
+const AllowedDifficultySchema = z.union([z.literal(2), z.literal(4), z.literal(11), z.literal(12), z.literal(13)]);
+export const GameNewSchema = z.object({
+	gameId: z.string().min(1).optional(),
+	difficulty: AllowedDifficultySchema.optional()
+});
 
 export const GameChangeDifficultySchema = z.object({
-	difficulty: z.number().positive(),
+	difficulty: AllowedDifficultySchema,
 	gameId: z.string().min(1)
 });
 
