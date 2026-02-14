@@ -5,6 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Prefer libtorch bundled in this project when present.
+set(LOCAL_LIBTORCH_ROOT "${CMAKE_SOURCE_DIR}/../../libtorch")
+if (EXISTS "${LOCAL_LIBTORCH_ROOT}/share/cmake/Torch/TorchConfig.cmake")
+    set(CMAKE_PREFIX_PATH "${LOCAL_LIBTORCH_ROOT};${CMAKE_PREFIX_PATH}" CACHE STRING "" FORCE)
+    set(Torch_DIR "${LOCAL_LIBTORCH_ROOT}/share/cmake/Torch" CACHE PATH "" FORCE)
+endif()
+
 find_package(Torch REQUIRED)
 
 include_directories(${CMAKE_JS_INC})

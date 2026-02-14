@@ -22,8 +22,23 @@ type NativeMove = { row: number; col: number; kind: number };
 type NativeOutput = { moves: NativeMove[]; score: number };
 type RlDifficulty = "easy" | "medium" | "hard";
 
+function resolveMinimaxAddonPath(): string {
+	const candidates = [
+		path.join(__dirname, "..", "native", "build", "Release", "neutron_minimax.node"),
+		path.join(__dirname, "..", "..", "native", "build", "Release", "neutron_minimax.node"),
+		path.join(process.cwd(), "native", "build", "Release", "neutron_minimax.node")
+	];
+
+	const found = candidates.find((candidate) => existsSync(candidate));
+	if (!found) {
+		throw new Error("minimax_addon_not_found: native/build/Release/neutron_minimax.node");
+	}
+
+	return found;
+}
+
 const minimaxAddon: { minimaxAsync(input: { board: Uint8Array; depth: number }): Promise<NativeOutput> } =
-	require(path.join(__dirname, "..", "..", "native", "build", "Release", "neutron_minimax.node"));
+	require(resolveMinimaxAddonPath());
 
 type RlAddon = {
 	loadModel(path: string): Promise<void>;
@@ -35,6 +50,8 @@ let rlReady = false;
 
 function resolveRlAddonPath(): string | undefined {
 	const candidates = [
+		path.join(__dirname, "..", "native", "rl", "build", "neutron_rl_addon.node"),
+		path.join(__dirname, "..", "native", "rl", "build", "Release", "neutron_rl_addon.node"),
 		path.join(__dirname, "..", "..", "native", "rl", "build", "neutron_rl_addon.node"),
 		path.join(__dirname, "..", "..", "native", "rl", "build", "Release", "neutron_rl_addon.node"),
 		path.join(process.cwd(), "native", "rl", "build", "neutron_rl_addon.node"),

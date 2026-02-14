@@ -11,7 +11,7 @@
 	"scripts": {
 		"dev": "tsx watch src/server.ts",
 		"build:native": "node-gyp rebuild --directory ./native",
-		"build:rl": "cmake-js build -d native/rl -O native/rl/build --CDCMAKE_PREFIX_PATH=${LIBTORCH_PATH:-/usr/local/lib/libtorch}",
+		"build:rl": "cmake-js build -d native/rl -O native/rl/build --CDCMAKE_PREFIX_PATH=$PWD/libtorch --CDTorch_DIR=$PWD/libtorch/share/cmake/Torch",
 		"clean": "node-gyp clean --directory ./native",
 		"build": "tsc && npm run build:native && npm run build:rl && npm run copy-static-assets",
 		"start": "NODE_ENV=production node -r module-alias/register dist/server.js",
