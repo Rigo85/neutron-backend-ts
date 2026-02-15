@@ -142,7 +142,8 @@ class GameState {
 
 	static fromJSON(json: any): GameState {
 		const id: string = json.id;
-		const board: PieceKind[] = json.board;
+		const boardRaw = json.board as PieceKind[] | PieceKind[][];
+		const board: PieceKind[] = Array.isArray(boardRaw?.[0]) ? (boardRaw as PieceKind[][]).flat() : (boardRaw as PieceKind[]);
 		const movements: FullMove[] = json.movements.map((m: any) => FullMove.fromJSON(m));
 		const whoMove: number = json.whoMove;
 		const selectedChip: Move | undefined = json.selectedChip ? Move.fromJSON(json.selectedChip) : undefined;

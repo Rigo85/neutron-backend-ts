@@ -35,9 +35,15 @@ const RowSchema = z.tuple([
 	PieceKindSchema, PieceKindSchema, PieceKindSchema, PieceKindSchema, PieceKindSchema
 ]);
 
-export const BoardSchema = z.tuple([
+const MatrixBoardSchema = z.tuple([
 	RowSchema, RowSchema, RowSchema, RowSchema, RowSchema
 ]);
+
+const FlatBoardSchema = z.array(PieceKindSchema).length(25);
+
+export const BoardSchema = z
+	.union([FlatBoardSchema, MatrixBoardSchema])
+	.transform((board) => (Array.isArray(board[0]) ? board.flat() : board));
 
 export const FullMoveSchema = z.object({
 	moves: z.array(MoveSchema).length(4),
